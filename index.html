@@ -60,6 +60,7 @@
     #loginView {
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px;
@@ -81,7 +82,9 @@
       font-size: 13px;
       color: #7c5a00;
       white-space: pre-wrap;
-      margin-bottom: 12px;
+      width: 100%;
+      max-width: 360px;
+      margin-top: 16px;
     }
 
     /* ---- アプリ全体 ---- */
@@ -197,7 +200,6 @@
   <div id="loginView">
     <div class="box">
       <h2>映画研究部 機材管理システム</h2>
-      <div id="loginNotice" class="noticeBox" hidden></div>
       <p class="muted">合言葉と学籍番号を入力してください。</p>
       <p class="muted">※初回ログイン時は少し時間がかかることがあります。しばらくお待ちください。</p>
       <label>合言葉</label><input type="password" id="loginPassword" autocomplete="current-password">
@@ -206,6 +208,7 @@
       <div class="errorMsg" id="loginError"></div>
       <div class="rowActions"><button class="secondary" id="publicViewBtn" style="width:100%">ログインせずに閲覧する</button></div>
     </div>
+    <div id="loginNotice" class="noticeBox" hidden></div>
   </div>
 
   <div id="appView" hidden>
