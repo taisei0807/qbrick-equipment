@@ -193,6 +193,7 @@
       <label>学籍番号</label><input type="text" id="loginStudentId" placeholder="例: 123m4567" autocomplete="username">
       <div class="rowActions"><button id="loginBtn" style="width:100%">ログイン</button></div>
       <div class="errorMsg" id="loginError"></div>
+      <div class="rowActions"><button class="secondary" id="publicViewBtn" style="width:100%">ログインせずに閲覧する</button></div>
     </div>
   </div>
 
@@ -201,10 +202,12 @@
       <div class="headerRow">
         <div class="appTitle">映画研究部 機材管理システム</div>
         <div class="userInfo">
+          <span class="badge" id="readOnlyBadge" hidden>閲覧のみ</span>
           <span id="userName"></span>
           <span class="badge" id="adminBadge" hidden>管理者</span>
           <button class="secondary" id="openMembersBtn" hidden>部員管理</button>
-          <button class="secondary" id="switchAccountBtn">ログアウト</button>
+          <button class="secondary" id="loginFromReadOnlyBtn" hidden>ログイン</button>
+          <button class="secondary" id="switchAccountBtn" hidden>ログアウト</button>
         </div>
       </div>
       <div class="toolbar">
@@ -239,6 +242,7 @@
 
     var AUTH = { password: '', studentId: '' };
     var CURRENT_MEMBER = null;
+    var READ_ONLY = false;
 
     var STATE = {
       equipment: [],
@@ -344,13 +348,43 @@
           if (!silent) { btn.disabled = false; btn.textContent = originalLabel; }
           saveAuth(auth);
           CURRENT_MEMBER = result.member;
-          initApp(result.initialData);
+          initApp(result.initialData, { readOnly: false });
         })
         .catch(function (err) {
           if (!silent) { btn.disabled = false; btn.textContent = originalLabel; }
-          clearAuth();
+          // サーバーがはっきり拒否した場合(合言葉違い・未登録の学籍番号)だけ
+          // 保存済みの認証情報を消す。通信そのものの失敗では、情報自体は
+          // 正しい可能性が高いので残しておき、再入力の手間を増やさない。
+          if (err && err.fromServer) {
+            clearAuth();
+          } else {
+            // 次に手動でログインボタンを押すだけで再試行できるよう、
+            // 保存されている値をフォームに入れておく
+            document.getElementById('loginPassword').value = auth.password || '';
+            document.getElementById('loginStudentId').value = auth.studentId || '';
+          }
           document.getElementById('loginView').hidden = false;
           document.getElementById('appView').hidden = true;
+          if (errEl) errEl.textContent = err.message || String(err);
+        });
+    }
+
+    function viewPublicly() {
+      var errEl = document.getElementById('loginError');
+      if (errEl) errEl.textContent = '';
+      var btn = document.getElementById('publicViewBtn');
+      var originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '読み込み中...しばらくお待ちください';
+
+      callApi('publicView', {})
+        .then(function (initialData) {
+          btn.disabled = false; btn.textContent = originalLabel;
+          CURRENT_MEMBER = null;
+          initApp(initialData, { readOnly: true });
+        })
+        .catch(function (err) {
+          btn.disabled = false; btn.textContent = originalLabel;
           if (errEl) errEl.textContent = err.message || String(err);
         });
     }
@@ -362,11 +396,15 @@
           studentId: document.getElementById('loginStudentId').value.trim()
         });
       });
+      document.getElementById('publicViewBtn').addEventListener('click', viewPublicly);
       document.getElementById('openNewBtn').addEventListener('click', function () { openNewEquipmentModal(); });
       document.getElementById('openMembersBtn').addEventListener('click', openMembersModal);
       document.getElementById('switchAccountBtn').addEventListener('click', function () {
         if (!confirm('ログアウトしますか?')) return;
         clearAuth();
+        location.reload();
+      });
+      document.getElementById('loginFromReadOnlyBtn').addEventListener('click', function () {
         location.reload();
       });
 
@@ -387,16 +425,22 @@
       }
     });
 
-    function initApp(initialData) {
+    function initApp(initialData, opts) {
+      READ_ONLY = !!(opts && opts.readOnly);
+
       STATE.equipment = (initialData.equipment || []).filter(function (o) { return o && o.id; });
       STATE.locations = initialData.locations || [];
       STATE.departments = initialData.departments || [];
       STATE.statuses = initialData.statuses || [];
 
       document.getElementById('loginView').hidden = true;
-      document.getElementById('userName').textContent = CURRENT_MEMBER.name || CURRENT_MEMBER.studentId;
-      document.getElementById('adminBadge').hidden = !CURRENT_MEMBER.isAdmin;
-      document.getElementById('openMembersBtn').hidden = !CURRENT_MEMBER.isAdmin;
+      document.getElementById('readOnlyBadge').hidden = !READ_ONLY;
+      document.getElementById('userName').textContent = READ_ONLY ? '' : (CURRENT_MEMBER.name || CURRENT_MEMBER.studentId);
+      document.getElementById('adminBadge').hidden = READ_ONLY || !CURRENT_MEMBER.isAdmin;
+      document.getElementById('openMembersBtn').hidden = READ_ONLY || !CURRENT_MEMBER.isAdmin;
+      document.getElementById('openNewBtn').hidden = READ_ONLY;
+      document.getElementById('switchAccountBtn').hidden = READ_ONLY;
+      document.getElementById('loginFromReadOnlyBtn').hidden = !READ_ONLY;
 
       renderDeptTabs();
       renderLocationFilter();
@@ -612,11 +656,54 @@
     }
 
     // ============================================================
-    // 機材詳細モーダル
+    // 機材詳細モーダル(閲覧専用モード。編集系の操作は一切出さない)
     // ============================================================
+    function openDetailModalReadOnly_(eq) {
+      var html = '' +
+        '<div class="modalHeader"><h2>' + esc(eq.id) + '</h2><button class="closeBtn" id="mClose">×</button></div>' +
+        '<div><b>' + esc(eq.name) + '</b></div>' +
+        '<div class="muted">' + esc(eq.type || '種別未設定') + ' ／ ' + esc(eq.dept) + ' ／ ' + esc(eq.maker || '不明') + '</div>' +
+        '<div class="muted">購入年月日: ' + esc(eq.purchasedAt || '不明') + '</div>' +
+        (eq.manualUrl ? '<div style="margin-top:6px;"><a href="' + esc(eq.manualUrl) + '" id="manualLink" target="_blank" rel="noopener noreferrer">説明書を開く</a></div>' : '') +
+        '<div class="section"><h3>状態</h3><div>' + statusDot(eq.status) + esc(eq.status || '未設定') + '</div></div>' +
+        '<div class="section"><h3>保管場所</h3><div>' + esc(eq.location || '未設定') + '</div></div>' +
+        (eq.note ? '<div class="section"><h3>メモ</h3><div>' + esc(eq.note) + '</div></div>' : '') +
+        '<div class="section"><h3>変更履歴</h3><div id="histList" class="muted">読み込み中...</div></div>';
+
+      var overlay = showModal(html, { wide: true });
+      overlay.querySelector('#mClose').addEventListener('click', closeModal);
+
+      var manualLink = overlay.querySelector('#manualLink');
+      if (manualLink) {
+        manualLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          window.open(manualLink.href, '_blank', 'noopener,noreferrer');
+        });
+      }
+
+      callApi('publicHistory', { equipmentId: eq.id })
+        .then(function (list) {
+          var el = overlay.querySelector('#histList');
+          if (!el) return;
+          if (!list.length) { el.textContent = '履歴はありません。'; return; }
+          el.className = '';
+          el.innerHTML = list.map(function (h) {
+            return '<div class="histItem"><div class="histText">' + esc(h.text) + '</div>' +
+              '<div class="histMeta">' + fmtDate(h.timestamp) + ' ・ ' + esc(h.changedByName || h.changedByEmail) + '</div></div>';
+          }).join('');
+        })
+        .catch(function () { /* 履歴取得失敗は静かに無視 */ });
+    }
+
     function openDetailModal(id) {
       var eq = findEquipment(id);
       if (!eq) return;
+
+      if (READ_ONLY) {
+        openDetailModalReadOnly_(eq);
+        return;
+      }
+
       var isAdmin = !!CURRENT_MEMBER.isAdmin;
 
       var quickLocBtns = STATE.locations.map(function (l) {
