@@ -188,6 +188,7 @@
     <div class="box">
       <h2>映画研究部 機材管理システム</h2>
       <p class="muted">合言葉と学籍番号を入力してください。</p>
+      <p class="muted">※初回ログイン時は少し時間がかかることがあります。しばらくお待ちください。</p>
       <label>合言葉</label><input type="password" id="loginPassword" autocomplete="current-password">
       <label>学籍番号</label><input type="text" id="loginStudentId" placeholder="例: 123m4567" autocomplete="username">
       <div class="rowActions"><button id="loginBtn" style="width:100%">ログイン</button></div>
@@ -307,18 +308,22 @@
       var errEl = document.getElementById('loginError');
       if (errEl) errEl.textContent = '';
       var btn = document.getElementById('loginBtn');
-      if (!silent) btn.disabled = true;
+      var originalLabel = btn.textContent;
+      if (!silent) {
+        btn.disabled = true;
+        btn.textContent = 'ログイン中...しばらくお待ちください';
+      }
 
       AUTH = auth;
       callApi('login', {})
         .then(function (result) {
-          if (!silent) btn.disabled = false;
+          if (!silent) { btn.disabled = false; btn.textContent = originalLabel; }
           saveAuth(auth);
           CURRENT_MEMBER = result.member;
           initApp(result.initialData);
         })
         .catch(function (err) {
-          if (!silent) btn.disabled = false;
+          if (!silent) { btn.disabled = false; btn.textContent = originalLabel; }
           clearAuth();
           document.getElementById('loginView').hidden = false;
           document.getElementById('appView').hidden = true;
