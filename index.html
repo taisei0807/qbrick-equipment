@@ -268,7 +268,7 @@
     // ============================================================
     // API呼び出し(GASのdoPostをfetchで叩く。google.script.runは使えない)
     // ============================================================
-    function callApi(action, payload) {
+    function callApiOnce(action, payload) {
       return fetch(API_URL, {
         method: 'POST',
         // Content-Typeはtext/plainのままにすること(application/jsonにすると
@@ -278,8 +278,30 @@
       }).then(function (res) {
         return res.json();
       }).then(function (json) {
-        if (!json.ok) throw new Error(json.error || 'エラーが発生しました。');
+        if (!json.ok) {
+          // サーバー側が明示的に返したエラー(合言葉違い等)。既に日本語なのでそのまま伝える
+          var e = new Error(json.error || 'エラーが発生しました。');
+          e.fromServer = true;
+          throw e;
+        }
         return json.data;
+      });
+    }
+
+    // モバイル回線では「Load failed」等、英語のままの通信エラーがそのまま
+    // 出ることがある(Safari等ブラウザ自身が出す生のエラー文言で、ページ側では
+    // 日本語化できない)。通信そのものの失敗(サーバーには届いていない)は
+    // 1回だけ自動で再試行し、それでも失敗したら分かりやすい日本語で伝える。
+    function callApi(action, payload, retriesLeft) {
+      if (retriesLeft === undefined) retriesLeft = 1;
+      return callApiOnce(action, payload).catch(function (err) {
+        if (err && err.fromServer) throw err;
+        if (retriesLeft > 0) {
+          return new Promise(function (resolve) { setTimeout(resolve, 800); })
+            .then(function () { return callApi(action, payload, retriesLeft - 1); });
+        }
+        var detail = (err && err.message) ? err.message : String(err);
+        throw new Error('通信に失敗しました。電波状況の良い場所でもう一度お試しください。(' + detail + ')');
       });
     }
 
