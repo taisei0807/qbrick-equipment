@@ -73,6 +73,16 @@
       max-width: 360px;
     }
     #loginView h2 { text-align: center; margin-top: 0; }
+    .noticeBox {
+      background: #fff8e1;
+      border: 1px solid #f3d98b;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #7c5a00;
+      white-space: pre-wrap;
+      margin-bottom: 12px;
+    }
 
     /* ---- アプリ全体 ---- */
     header {
@@ -187,6 +197,7 @@
   <div id="loginView">
     <div class="box">
       <h2>映画研究部 機材管理システム</h2>
+      <div id="loginNotice" class="noticeBox" hidden></div>
       <p class="muted">合言葉と学籍番号を入力してください。</p>
       <p class="muted">※初回ログイン時は少し時間がかかることがあります。しばらくお待ちください。</p>
       <label>合言葉</label><input type="password" id="loginPassword" autocomplete="current-password">
@@ -423,6 +434,17 @@
       if (stored) {
         attemptLogin(stored, true);
       }
+
+      // ログイン画面の注意書き(Settingsシートで管理者が自由に書き換えられる)
+      callApi('getLoginNotice', {})
+        .then(function (result) {
+          var el = document.getElementById('loginNotice');
+          var text = (result && result.notice) ? result.notice.trim() : '';
+          if (!text) return;
+          el.textContent = text;
+          el.hidden = false;
+        })
+        .catch(function () { /* 注意書きが取れなくても本体の動作に影響させない */ });
     });
 
     function initApp(initialData, opts) {
