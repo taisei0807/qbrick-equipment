@@ -204,7 +204,7 @@
           <span id="userName"></span>
           <span class="badge" id="adminBadge" hidden>管理者</span>
           <button class="secondary" id="openMembersBtn" hidden>部員管理</button>
-          <button class="secondary" id="switchAccountBtn">別の学籍番号でログイン</button>
+          <button class="secondary" id="switchAccountBtn">ログアウト</button>
         </div>
       </div>
       <div class="toolbar">
@@ -363,7 +363,7 @@
       document.getElementById('openNewBtn').addEventListener('click', function () { openNewEquipmentModal(); });
       document.getElementById('openMembersBtn').addEventListener('click', openMembersModal);
       document.getElementById('switchAccountBtn').addEventListener('click', function () {
-        if (!confirm('別の学籍番号でログインし直しますか?')) return;
+        if (!confirm('ログアウトしますか?')) return;
         clearAuth();
         location.reload();
       });
