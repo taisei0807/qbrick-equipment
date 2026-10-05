@@ -632,7 +632,7 @@
         '  <div><b id="dName">' + esc(eq.name) + '</b></div>' +
         '  <div class="muted" id="dMeta">' + esc(eq.type || '種別未設定') + ' ／ ' + esc(eq.dept) + ' ／ ' + esc(eq.maker || '不明') + '</div>' +
         '  <div class="muted">購入年月日: ' + esc(eq.purchasedAt || '不明') + '</div>' +
-        (eq.manualUrl ? '<div style="margin-top:6px;"><a href="' + esc(eq.manualUrl) + '" target="_blank" rel="noopener">説明書を開く</a></div>' : '') +
+        (eq.manualUrl ? '<div style="margin-top:6px;"><a href="' + esc(eq.manualUrl) + '" id="manualLink" target="_blank" rel="noopener noreferrer">説明書を開く</a></div>' : '') +
         '  <div class="rowActions"><button class="secondary" id="editInfoBtn">情報を編集</button><button class="secondary" id="addMoreUnitsBtn">＋同じ機種を追加登録</button></div>' +
         '</div>' +
 
@@ -672,6 +672,17 @@
 
       var overlay = showModal(html, { wide: true });
       overlay.querySelector('#mClose').addEventListener('click', closeModal);
+
+      // iOS Safariは、JSで後から挿入したa[target="_blank"]を新しいタブで
+      // 開かず同じページで開いてしまうことがあるため、クリック時に明示的に
+      // window.openを呼んで新しいタブ/ウィンドウで開く。
+      var manualLink = overlay.querySelector('#manualLink');
+      if (manualLink) {
+        manualLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          window.open(manualLink.href, '_blank', 'noopener,noreferrer');
+        });
+      }
 
       function setError(msg) { overlay.querySelector('#detailError').textContent = msg || ''; }
 
