@@ -291,13 +291,15 @@
     // モバイル回線では「Load failed」等、英語のままの通信エラーがそのまま
     // 出ることがある(Safari等ブラウザ自身が出す生のエラー文言で、ページ側では
     // 日本語化できない)。通信そのものの失敗(サーバーには届いていない)は
-    // 1回だけ自動で再試行し、それでも失敗したら分かりやすい日本語で伝える。
+    // 自動で再試行し(最大3回、間隔を広げながら)、それでも失敗したら
+    // 分かりやすい日本語で伝える。
     function callApi(action, payload, retriesLeft) {
-      if (retriesLeft === undefined) retriesLeft = 1;
+      if (retriesLeft === undefined) retriesLeft = 3;
       return callApiOnce(action, payload).catch(function (err) {
         if (err && err.fromServer) throw err;
         if (retriesLeft > 0) {
-          return new Promise(function (resolve) { setTimeout(resolve, 800); })
+          var wait = (4 - retriesLeft) * 1000; // 1秒,2秒,3秒と間隔を広げる
+          return new Promise(function (resolve) { setTimeout(resolve, wait); })
             .then(function () { return callApi(action, payload, retriesLeft - 1); });
         }
         var detail = (err && err.message) ? err.message : String(err);
