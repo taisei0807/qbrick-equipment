@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>映画研究部 機材管理システム</title>
+<style>
+    :root {
+      --bg: #f5f6f8;
+      --card-bg: #ffffff;
+      --border: #e0e2e6;
+      --text: #1f2328;
+      --text-sub: #6b7280;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --danger: #c62828;
+      --ok: #2e7d32;
+      --warn: #b8860b;
+      --bad: #c62828;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    [hidden] { display: none !important; }
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      background: var(--accent);
+      color: #fff;
+      transition: background .15s;
+    }
+    button:hover { background: var(--accent-dark); }
+    button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    button.secondary:hover { background: #f0f1f3; }
+    button.danger { background: var(--danger); }
+    button.danger:hover { background: #a31f1f; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 14px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+      width: 100%;
+    }
+    label { font-size: 13px; color: var(--text-sub); display: block; margin: 10px 0 4px; }
+
+    /* ---- ログイン画面 ---- */
+    #loginView {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #loginView .box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 360px;
+    }
+    #loginView h2 { text-align: center; margin-top: 0; }
+
+    /* ---- アプリ全体 ---- */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+    }
+    .headerRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .appTitle { font-size: 16px; font-weight: 700; }
+    .userInfo { font-size: 13px; color: var(--text-sub); display: flex; align-items: center; gap: 8px; }
+    .badge { background: #fde68a; color: #7c5a00; font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab {
+      background: #fff;
+      color: var(--text-sub);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .toolbar input, .toolbar select { width: auto; min-width: 140px; }
+    .spacer { flex: 1; }
+
+    main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      cursor: pointer;
+      transition: box-shadow .15s, transform .15s;
+    }
+    .card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); transform: translateY(-1px); }
+    .cardTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .cardName { font-weight: 700; font-size: 15px; line-height: 1.3; }
+    .cardType { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .countBadge { background: #eef2ff; color: var(--accent-dark); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
+    .statusLine, .locLine { font-size: 12px; color: var(--text-sub); margin-top: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+    .emptyState { text-align: center; color: var(--text-sub); padding: 60px 20px; }
+
+    /* ---- モーダル ---- */
+    .modalOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 12px; overflow-y: auto; z-index: 100;
+    }
+    .modal {
+      background: #fff; border-radius: var(--radius);
+      width: 100%; max-width: 480px; padding: 20px;
+      margin: auto;
+    }
+    .modal.wide { max-width: 620px; }
+    .modalHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .modalHeader h2 { font-size: 17px; margin: 0; }
+    .closeBtn { background: none; color: var(--text-sub); font-size: 20px; padding: 0 6px; }
+    .closeBtn:hover { background: #f0f1f3; color: var(--text); }
+    .section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px; }
+    .section h3 { font-size: 13px; color: var(--text-sub); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .02em; }
+    .quickBtns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .quickBtns button { background: #eef2ff; color: var(--accent-dark); font-size: 13px; padding: 5px 12px; }
+    .quickBtns button.selected { background: var(--accent); color: #fff; }
+    .inline { display: flex; gap: 8px; align-items: center; }
+    .inline input, .inline select { flex: 1; }
+    .statusBtns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .statusBtns button { flex: 1; min-width: 80px; background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .statusBtns button.active { color: #fff; border-color: transparent; }
+    .breakdownRow {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 4px; border-bottom: 1px solid var(--border); cursor: pointer;
+    }
+    .breakdownRow:hover { background: #f7f8fa; }
+    .breakdownRow:last-child { border-bottom: none; }
+    .histItem { font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .histItem:last-child { border-bottom: none; }
+    .histMeta { color: var(--text-sub); font-size: 12px; margin-top: 2px; }
+    .rowActions { display: flex; gap: 8px; margin-top: 14px; }
+    .memberRow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .memberRow:last-child { border-bottom: none; }
+    .memberRow .name { font-weight: 600; }
+    .memberRow .sid { color: var(--text-sub); flex: 1; }
+    .muted { color: var(--text-sub); font-size: 13px; }
+    .errorMsg { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 1em; }
+</style>
+</head>
+<body>
+
+  <div id="loginView">
+    <div class="box">
+      <h2>映画研究部 機材管理システム</h2>
+      <p class="muted">合言葉と学籍番号を入力してください。</p>
+      <label>合言葉</label><input type="password" id="loginPassword" autocomplete="current-password">
+      <label>学籍番号</label><input type="text" id="loginStudentId" placeholder="例: 123m4567" autocomplete="username">
+      <div class="rowActions"><button id="loginBtn" style="width:100%">ログイン</button></div>
+      <div class="errorMsg" id="loginError"></div>
+    </div>
+  </div>
+
+  <div id="appView" hidden>
+    <header>
+      <div class="headerRow">
+        <div class="appTitle">映画研究部 機材管理システム</div>
+        <div class="userInfo">
+          <span id="userName"></span>
+          <span class="badge" id="adminBadge" hidden>管理者</span>
+          <button class="secondary" id="openMembersBtn" hidden>部員管理</button>
+          <button class="secondary" id="switchAccountBtn">別の学籍番号でログイン</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="tabs" id="deptTabs"></div>
+        <input type="text" id="searchInput" placeholder="機材名・種別・ID・状態で検索">
+        <select id="statusFilter"><option value="">状態：すべて</option></select>
+        <select id="locationFilter"><option value="">保管場所：すべて</option></select>
+        <div class="spacer"></div>
+        <button id="openNewBtn">＋ 新規登録</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="grid"></div>
+      <div id="emptyState" class="emptyState" hidden>該当する機材が見つかりません。</div>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // 器2専用のAPIエンドポイント(匿名アクセス可。合言葉+学籍番号で都度認可する)
+    var API_URL = 'https://script.google.com/macros/s/AKfycbycFklDyZo61f93ArMrXpNyEv5N_MyQjQBNIBc-4f97FEpTpdyfrGKe7ywu-2npSDN7/exec';
+    var AUTH_STORAGE_KEY = 'qbrickEquipmentAuth';
+
+    var STATUS_COLORS = { '未確認': '#9e9e9e', '良好': '#2e7d32', '要確認': '#b8860b', '使用不可': '#c62828' };
+    var SUFFIX_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+    var ALL_DEPTS_FILTER = '__ALL_DEPTS__';
+
+    var AUTH = { password: '', studentId: '' };
+    var CURRENT_MEMBER = null;
+
+    var STATE = {
+      equipment: [],
+      locations: [],
+      departments: [],
+      statuses: [],
+      dept: ALL_DEPTS_FILTER,
+      search: '',
+      location: '',
+      status: ''
+    };
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function fmtDate(v) {
+      if (!v) return '';
+      var d = new Date(v);
+      if (isNaN(d.getTime())) return String(v);
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    // ============================================================
+    // API呼び出し(GASのdoPostをfetchで叩く。google.script.runは使えない)
+    // ============================================================
+    function callApi(action, payload) {
+      return fetch(API_URL, {
+        method: 'POST',
+        // Content-Typeはtext/plainのままにすること(application/jsonにすると
+        // CORSのプリフライトが発生し、GASのWebアプリはdoOptionsを持たないため失敗する)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ auth: AUTH, action: action, payload: payload || {} })
+      }).then(function (res) {
+        return res.json();
+      }).then(function (json) {
+        if (!json.ok) throw new Error(json.error || 'エラーが発生しました。');
+        return json.data;
+      });
+    }
+
+    // ============================================================
+    // 認証(合言葉+学籍番号)
+    // ============================================================
+    function loadStoredAuth() {
+      try {
+        var raw = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.password && parsed.studentId) return parsed;
+      } catch (e) { /* ignore */ }
+      return null;
+    }
+    function saveAuth(auth) {
+      AUTH = auth;
+      try { localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth)); } catch (e) { /* ignore */ }
+    }
+    function clearAuth() {
+      AUTH = { password: '', studentId: '' };
+      try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch (e) { /* ignore */ }
+    }
+
+    function attemptLogin(auth, silent) {
+      var errEl = document.getElementById('loginError');
+      if (errEl) errEl.textContent = '';
+      var btn = document.getElementById('loginBtn');
+      if (!silent) btn.disabled = true;
+
+      AUTH = auth;
+      callApi('login', {})
+        .then(function (result) {
+          if (!silent) btn.disabled = false;
+          saveAuth(auth);
+          CURRENT_MEMBER = result.member;
+          initApp(result.initialData);
+        })
+        .catch(function (err) {
+          if (!silent) btn.disabled = false;
+          clearAuth();
+          document.getElementById('loginView').hidden = false;
+          document.getElementById('appView').hidden = true;
+          if (errEl) errEl.textContent = err.message || String(err);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('loginBtn').addEventListener('click', function () {
+        attemptLogin({
+          password: document.getElementById('loginPassword').value,
+          studentId: document.getElementById('loginStudentId').value.trim()
+        });
+      });
+      document.getElementById('openNewBtn').addEventListener('click', function () { openNewEquipmentModal(); });
+      document.getElementById('openMembersBtn').addEventListener('click', openMembersModal);
+      document.getElementById('switchAccountBtn').addEventListener('click', function () {
+        if (!confirm('別の学籍番号でログインし直しますか?')) return;
+        clearAuth();
+        location.reload();
+      });
+
+      var grid = document.getElementById('grid');
+      grid.addEventListener('click', function (e) {
+        var card = e.target.closest('.card');
+        if (!card) return;
+        var idx = parseInt(card.getAttribute('data-idx'), 10);
+        var g = currentGroups[idx];
+        if (!g) return;
+        if (g.items.length >= 2) openGroupModal(g);
+        else openDetailModal(g.items[0].id);
+      });
+
+      var stored = loadStoredAuth();
+      if (stored) {
+        attemptLogin(stored, true);
+      }
+    });
+
+    function initApp(initialData) {
+      STATE.equipment = (initialData.equipment || []).filter(function (o) { return o && o.id; });
+      STATE.locations = initialData.locations || [];
+      STATE.departments = initialData.departments || [];
+      STATE.statuses = initialData.statuses || [];
+
+      document.getElementById('loginView').hidden = true;
+      document.getElementById('userName').textContent = CURRENT_MEMBER.name || CURRENT_MEMBER.studentId;
+      document.getElementById('adminBadge').hidden = !CURRENT_MEMBER.isAdmin;
+      document.getElementById('openMembersBtn').hidden = !CURRENT_MEMBER.isAdmin;
+
+      renderDeptTabs();
+      renderLocationFilter();
+      renderStatusFilter();
+      bindToolbar();
+      renderGrid();
+
+      document.getElementById('appView').hidden = false;
+    }
+
+    function bindToolbar() {
+      document.getElementById('searchInput').addEventListener('input', function (e) {
+        STATE.search = e.target.value.trim().toLowerCase();
+        renderGrid();
+      });
+      document.getElementById('locationFilter').addEventListener('change', function (e) {
+        STATE.location = e.target.value;
+        renderGrid();
+      });
+      document.getElementById('statusFilter').addEventListener('change', function (e) {
+        STATE.status = e.target.value;
+        renderGrid();
+      });
+    }
+
+    function renderDeptTabs() {
+      var tabs = [{ value: ALL_DEPTS_FILTER, label: 'すべて' }].concat(
+        STATE.departments.map(function (d) { return { value: d, label: d }; })
+      );
+      var el = document.getElementById('deptTabs');
+      el.innerHTML = tabs.map(function (t) {
+        return '<button type="button" class="tab' + (t.value === STATE.dept ? ' active' : '') + '" data-dept="' + esc(t.value) + '">' + esc(t.label) + '</button>';
+      }).join('');
+      el.querySelectorAll('.tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          STATE.dept = btn.getAttribute('data-dept');
+          renderDeptTabs();
+          renderGrid();
+        });
+      });
+    }
+
+    function renderLocationFilter() {
+      var sel = document.getElementById('locationFilter');
+      var current = sel.value;
+      sel.innerHTML = '<option value="">保管場所：すべて</option>' +
+        STATE.locations.map(function (l) { return '<option value="' + esc(l) + '">' + esc(l) + '</option>'; }).join('');
+      sel.value = current;
+    }
+
+    function renderStatusFilter() {
+      var sel = document.getElementById('statusFilter');
+      sel.innerHTML = '<option value="">状態：すべて</option>' +
+        STATE.statuses.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
+    }
+
+    // ============================================================
+    // 一覧描画(グループ化カード)
+    // ============================================================
+    function filteredEquipment() {
+      return STATE.equipment.filter(function (eq) {
+        if (STATE.dept !== ALL_DEPTS_FILTER && eq.dept !== STATE.dept) return false;
+        if (STATE.location && eq.location !== STATE.location) return false;
+        if (STATE.status && eq.status !== STATE.status) return false;
+        if (STATE.search) {
+          var hay = (eq.name + ' ' + eq.type + ' ' + eq.id + ' ' + eq.maker + ' ' + eq.status).toLowerCase();
+          if (hay.indexOf(STATE.search) === -1) return false;
+        }
+        return true;
+      });
+    }
+
+    function groupByName(list) {
+      var map = {};
+      var order = [];
+      list.forEach(function (eq) {
+        if (!map[eq.name]) { map[eq.name] = []; order.push(eq.name); }
+        map[eq.name].push(eq);
+      });
+      return order.map(function (name) { return { name: name, items: map[name] }; });
+    }
+
+    var currentGroups = [];
+
+    function renderGrid() {
+      var list = filteredEquipment();
+      var groups = groupByName(list);
+      currentGroups = groups;
+      var grid = document.getElementById('grid');
+      var empty = document.getElementById('emptyState');
+
+      if (groups.length === 0) {
+        grid.innerHTML = '';
+        empty.hidden = false;
+        return;
+      }
+      empty.hidden = true;
+
+      grid.innerHTML = groups.map(function (g, i) {
+        return g.items.length >= 2 ? groupCardHtml(g, i) : singleCardHtml(g.items[0], i);
+      }).join('');
+    }
+
+    function statusDot(status) {
+      return '<span class="dot" style="background:' + (STATUS_COLORS[status] || '#999') + '"></span>';
+    }
+
+    function singleCardHtml(eq, i) {
+      return '' +
+        '<div class="card" data-idx="' + i + '">' +
+        '  <div class="cardTop">' +
+        '    <div><div class="cardName">' + esc(eq.name) + '</div><div class="cardType">' + esc(eq.type || '種別未設定') + '</div></div>' +
+        '  </div>' +
+        '  <div class="statusLine">' + statusDot(eq.status) + esc(eq.status || '未設定') + '</div>' +
+        '  <div class="locLine">📍 ' + esc(eq.location || '未設定') + '</div>' +
+        '</div>';
+    }
+
+    function groupCardHtml(g, i) {
+      var statusCounts = {};
+      var locCounts = {};
+      g.items.forEach(function (eq) {
+        statusCounts[eq.status] = (statusCounts[eq.status] || 0) + 1;
+        var loc = eq.location || '未設定';
+        locCounts[loc] = (locCounts[loc] || 0) + 1;
+      });
+
+      var statusHtml = STATE.statuses
+        .filter(function (s) { return statusCounts[s]; })
+        .map(function (s) { return statusDot(s) + s + statusCounts[s]; })
+        .join('&nbsp;&nbsp;');
+
+      var locEntries = Object.keys(locCounts).sort(function (a, b) { return locCounts[b] - locCounts[a]; });
+      var topLoc = locEntries[0];
+      var restCount = locEntries.length - 1;
+      var locHtml = esc(topLoc) + '(' + locCounts[topLoc] + ')' + (restCount > 0 ? ' 他' + restCount + '箇所' : '');
+
+      return '' +
+        '<div class="card" data-idx="' + i + '">' +
+        '  <div class="cardTop">' +
+        '    <div><div class="cardName">' + esc(g.name) + '</div><div class="cardType">' + esc(g.items[0].type || '種別未設定') + '</div></div>' +
+        '    <span class="countBadge">×' + g.items.length + '</span>' +
+        '  </div>' +
+        '  <div class="statusLine">' + statusHtml + '</div>' +
+        '  <div class="locLine">📍 ' + locHtml + '</div>' +
+        '</div>';
+    }
+
+    // ============================================================
+    // モーダル基盤
+    // ============================================================
+    function showModal(innerHtml, opts) {
+      opts = opts || {};
+      var root = document.getElementById('modalRoot');
+      var overlay = document.createElement('div');
+      overlay.className = 'modalOverlay';
+      overlay.innerHTML = '<div class="modal' + (opts.wide ? ' wide' : '') + '">' + innerHtml + '</div>';
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeModal();
+      });
+      root.innerHTML = '';
+      root.appendChild(overlay);
+      return overlay;
+    }
+    function closeModal() {
+      document.getElementById('modalRoot').innerHTML = '';
+    }
+
+    function findEquipment(id) {
+      for (var i = 0; i < STATE.equipment.length; i++) {
+        if (STATE.equipment[i].id === id) return STATE.equipment[i];
+      }
+      return null;
+    }
+
+    function applyLocalUpdate(updated, oldId) {
+      if (!updated || !updated.id) {
+        console.error('applyLocalUpdate: サーバーから不正な値が返されました:', updated);
+        return;
+      }
+      var key = oldId || updated.id;
+      for (var i = 0; i < STATE.equipment.length; i++) {
+        if (STATE.equipment[i].id === key) {
+          STATE.equipment[i] = updated;
+          return;
+        }
+      }
+    }
+
+    // ============================================================
+    // グループ内訳モーダル
+    // ============================================================
+    function openGroupModal(g) {
+      var rows = g.items.map(function (eq) {
+        return '' +
+          '<div class="breakdownRow" data-id="' + esc(eq.id) + '">' +
+          '  <span>' + esc(eq.id) + '</span>' +
+          '  <span>' + statusDot(eq.status) + esc(eq.status || '未設定') + '</span>' +
+          '  <span>' + esc(eq.location || '未設定') + '</span>' +
+          '</div>';
+      }).join('');
+
+      var overlay = showModal(
+        '<div class="modalHeader"><h2>' + esc(g.name) + '(' + g.items.length + ')</h2><button class="closeBtn" id="mClose">×</button></div>' +
+        rows
+      );
+      overlay.querySelector('#mClose').addEventListener('click', closeModal);
+      overlay.querySelectorAll('.breakdownRow').forEach(function (row) {
+        row.addEventListener('click', function () {
+          openDetailModal(row.getAttribute('data-id'));
+        });
+      });
+    }
+
+    // ============================================================
+    // 機材詳細モーダル
+    // ============================================================
+    function openDetailModal(id) {
+      var eq = findEquipment(id);
+      if (!eq) return;
+      var isAdmin = !!CURRENT_MEMBER.isAdmin;
+
+      var quickLocBtns = STATE.locations.map(function (l) {
+        return '<button type="button" class="quickLocBtn' + (l === eq.location ? ' selected' : '') + '" data-loc="' + esc(l) + '">' + esc(l) + '</button>';
+      }).join('');
+
+      var statusBtns = STATE.statuses.map(function (s) {
+        return '<button type="button" class="statusBtn' + (s === eq.status ? ' active' : '') + '" data-status="' + esc(s) + '" style="' + (s === eq.status ? 'background:' + STATUS_COLORS[s] : '') + '">' + esc(s) + '</button>';
+      }).join('');
+
+      var html = '' +
+        '<div class="modalHeader"><h2>' + esc(eq.id) + '</h2><button class="closeBtn" id="mClose">×</button></div>' +
+
+        '<div id="infoView">' +
+        '  <div><b id="dName">' + esc(eq.name) + '</b></div>' +
+        '  <div class="muted" id="dMeta">' + esc(eq.type || '種別未設定') + ' ／ ' + esc(eq.dept) + ' ／ ' + esc(eq.maker || '不明') + '</div>' +
+        '  <div class="muted">購入年月日: ' + esc(eq.purchasedAt || '不明') + '</div>' +
+        (eq.manualUrl ? '<div style="margin-top:6px;"><a href="' + esc(eq.manualUrl) + '" target="_blank" rel="noopener">説明書を開く</a></div>' : '') +
+        '  <div class="rowActions"><button class="secondary" id="editInfoBtn">情報を編集</button><button class="secondary" id="addMoreUnitsBtn">＋同じ機種を追加登録</button></div>' +
+        '</div>' +
+
+        '<div id="editView" hidden>' +
+        '  <label>機材名</label><input id="fName" value="' + esc(eq.name) + '">' +
+        '  <label>種別</label><input id="fType" value="' + esc(eq.type) + '">' +
+        '  <label>部署</label><select id="fDept">' + STATE.departments.map(function (d) { return '<option' + (d === eq.dept ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
+        '  <label>製造会社</label><input id="fMaker" value="' + esc(eq.maker) + '">' +
+        '  <label>説明書URL</label><input id="fManualUrl" value="' + esc(eq.manualUrl) + '">' +
+        '  <label>購入年月日</label><input id="fPurchasedAt" value="' + esc(eq.purchasedAt) + '" placeholder="例: 2023-04(不明なら空欄)">' +
+        '  <div class="rowActions"><button id="saveInfoBtn">保存</button><button class="secondary" id="cancelInfoBtn">キャンセル</button></div>' +
+        '</div>' +
+
+        '<div class="section"><h3>状態</h3><div class="statusBtns" id="statusBtns">' + statusBtns + '</div></div>' +
+
+        '<div class="section"><h3>保管場所</h3>' +
+        '  <div class="quickBtns" id="quickLocBtns">' + quickLocBtns + '</div>' +
+        '  <div class="inline"><input id="customLoc" placeholder="場所を入力..."><button id="applyLocBtn">変更</button></div>' +
+        '</div>' +
+
+        '<div class="section"><h3>メモ</h3>' +
+        '  <textarea id="noteArea" rows="3">' + esc(eq.note) + '</textarea>' +
+        '  <div class="rowActions"><button id="saveNoteBtn">メモを保存</button></div>' +
+        '</div>' +
+
+        (isAdmin ? (
+        '<div class="section"><h3>ID訂正(管理者)</h3>' +
+        '  <div class="inline"><input id="newIdInput" value="' + esc(eq.id) + '"><button class="secondary" id="correctIdBtn">訂正</button></div>' +
+        '</div>' +
+        '<div class="section"><h3>削除(管理者)</h3>' +
+        '  <button class="danger" id="deleteBtn">この機材を削除</button>' +
+        '</div>'
+        ) : '') +
+
+        '<div class="section"><h3>変更履歴</h3><div id="histList" class="muted">読み込み中...</div></div>' +
+        '<div class="errorMsg" id="detailError"></div>';
+
+      var overlay = showModal(html, { wide: true });
+      overlay.querySelector('#mClose').addEventListener('click', closeModal);
+
+      function setError(msg) { overlay.querySelector('#detailError').textContent = msg || ''; }
+
+      overlay.querySelector('#editInfoBtn').addEventListener('click', function () {
+        overlay.querySelector('#infoView').hidden = true;
+        overlay.querySelector('#editView').hidden = false;
+      });
+      overlay.querySelector('#cancelInfoBtn').addEventListener('click', function () {
+        overlay.querySelector('#infoView').hidden = false;
+        overlay.querySelector('#editView').hidden = true;
+      });
+      overlay.querySelector('#saveInfoBtn').addEventListener('click', function () {
+        var data = {
+          name: overlay.querySelector('#fName').value,
+          type: overlay.querySelector('#fType').value,
+          dept: overlay.querySelector('#fDept').value,
+          maker: overlay.querySelector('#fMaker').value,
+          manualUrl: overlay.querySelector('#fManualUrl').value,
+          purchasedAt: overlay.querySelector('#fPurchasedAt').value
+        };
+        setError('');
+        callApi('updateEquipmentInfo', { equipmentId: eq.id, data: data })
+          .then(function (updated) {
+            applyLocalUpdate(updated);
+            renderGrid();
+            closeModal();
+            if (updated && updated.id) openDetailModal(updated.id);
+          })
+          .catch(function (err) { setError(err.message || String(err)); });
+      });
+
+      overlay.querySelector('#addMoreUnitsBtn').addEventListener('click', function () {
+        closeModal();
+        openNewEquipmentModal({
+          baseEquipmentId: eq.id,
+          name: eq.name,
+          type: eq.type,
+          dept: eq.dept,
+          maker: eq.maker,
+          manualUrl: eq.manualUrl,
+          purchasedAt: eq.purchasedAt,
+          location: eq.location
+        });
+      });
+
+      overlay.querySelectorAll('.statusBtn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          setError('');
+          callApi('updateStatus', { equipmentId: eq.id, newStatus: btn.getAttribute('data-status') })
+            .then(function (updated) {
+              applyLocalUpdate(updated);
+              renderGrid();
+              closeModal();
+              if (updated && updated.id) openDetailModal(updated.id);
+            })
+            .catch(function (err) { setError(err.message || String(err)); });
+        });
+      });
+
+      overlay.querySelectorAll('.quickLocBtn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          applyLocation(btn.getAttribute('data-loc'));
+        });
+      });
+      overlay.querySelector('#applyLocBtn').addEventListener('click', function () {
+        var v = overlay.querySelector('#customLoc').value.trim();
+        if (!v) { setError('保管場所を入力してください。'); return; }
+        applyLocation(v);
+      });
+      function applyLocation(loc) {
+        setError('');
+        callApi('updateLocation', { equipmentId: eq.id, newLocation: loc })
+          .then(function (updated) {
+            applyLocalUpdate(updated);
+            if (STATE.locations.indexOf(loc) === -1) {
+              STATE.locations.push(loc);
+              renderLocationFilter();
+            }
+            renderGrid();
+            closeModal();
+            if (updated && updated.id) openDetailModal(updated.id);
+          })
+          .catch(function (err) { setError(err.message || String(err)); });
+      }
+
+      overlay.querySelector('#saveNoteBtn').addEventListener('click', function () {
+        setError('');
+        callApi('updateNote', { equipmentId: eq.id, newNote: overlay.querySelector('#noteArea').value })
+          .then(function (updated) {
+            applyLocalUpdate(updated);
+            renderGrid();
+          })
+          .catch(function (err) { setError(err.message || String(err)); });
+      });
+
+      if (isAdmin) {
+        overlay.querySelector('#correctIdBtn').addEventListener('click', function () {
+          var newId = overlay.querySelector('#newIdInput').value.trim();
+          if (!newId || newId === eq.id) return;
+          if (!confirm('ID「' + eq.id + '」を「' + newId + '」に訂正します。よろしいですか?')) return;
+          setError('');
+          callApi('correctEquipmentId', { oldId: eq.id, newId: newId })
+            .then(function (updated) {
+              applyLocalUpdate(updated, eq.id);
+              renderGrid();
+              closeModal();
+              if (updated && updated.id) openDetailModal(updated.id);
+            })
+            .catch(function (err) { setError(err.message || String(err)); });
+        });
+
+        overlay.querySelector('#deleteBtn').addEventListener('click', function () {
+          if (!confirm('機材「' + eq.id + ' ' + eq.name + '」を削除します。この操作は取り消せません。よろしいですか?')) return;
+          setError('');
+          callApi('deleteEquipment', { equipmentId: eq.id })
+            .then(function () {
+              STATE.equipment = STATE.equipment.filter(function (e) { return e.id !== eq.id; });
+              renderGrid();
+              closeModal();
+            })
+            .catch(function (err) { setError(err.message || String(err)); });
+        });
+      }
+
+      callApi('getEquipmentHistory', { equipmentId: eq.id })
+        .then(function (list) {
+          var el = overlay.querySelector('#histList');
+          if (!el) return;
+          if (!list.length) { el.textContent = '履歴はありません。'; return; }
+          el.className = '';
+          el.innerHTML = list.map(function (h) {
+            return '<div class="histItem"><div class="histText">' + esc(h.text) + '</div>' +
+              '<div class="histMeta">' + fmtDate(h.timestamp) + ' ・ ' + esc(h.changedByName || h.changedByEmail) + '</div></div>';
+          }).join('');
+        })
+        .catch(function () { /* 履歴取得失敗は静かに無視 */ });
+    }
+
+    // ============================================================
+    // 新規登録モーダル
+    // ============================================================
+    function openNewEquipmentModal(prefill) {
+      prefill = prefill || {};
+      var isAddMore = !!prefill.baseEquipmentId;
+
+      var quickLocBtns = STATE.locations.map(function (l) {
+        return '<button type="button" class="quickLocBtn' + (l === prefill.location ? ' selected' : '') + '" data-loc="' + esc(l) + '">' + esc(l) + '</button>';
+      }).join('');
+
+      var html = '' +
+        '<div class="modalHeader"><h2>' + (isAddMore ? '同じ機種を追加登録' : '機材を新規登録') + '</h2><button class="closeBtn" id="mClose">×</button></div>' +
+        (isAddMore ? '<p class="muted">「' + esc(prefill.name) + '」(' + esc(prefill.baseEquipmentId) + ')と同じ機種を追加登録します。個別IDは自動的に続きの番号になります。</p>' : '') +
+        '<label>機材名 *</label><input id="nName" value="' + esc(prefill.name || '') + '">' +
+        '<label>種別</label><input id="nType" value="' + esc(prefill.type || '') + '">' +
+        '<label>部署 *</label><select id="nDept">' + STATE.departments.map(function (d) { return '<option' + (d === prefill.dept ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select>' +
+        '<label>製造会社</label><input id="nMaker" value="' + esc(prefill.maker || '') + '" placeholder="不明">' +
+        '<label>説明書URL</label><input id="nManualUrl" value="' + esc(prefill.manualUrl || '') + '">' +
+        '<label>購入年月日</label><input id="nPurchasedAt" value="' + esc(prefill.purchasedAt || '') + '" placeholder="例: 2023-04(不明なら空欄)">' +
+        '<label>状態</label><select id="nStatus">' + STATE.statuses.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('') + '</select>' +
+        '<div class="section"><h3>保管場所</h3>' +
+        '  <div class="quickBtns" id="quickLocBtns">' + quickLocBtns + '</div>' +
+        '  <input id="nLocation" value="' + esc(prefill.location || '') + '" placeholder="場所を入力...">' +
+        '</div>' +
+        '<label>メモ</label><textarea id="nNote" rows="2"></textarea>' +
+        '<div class="section"><h3>個別ID</h3>' +
+        (isAddMore ?
+          '  <label>台数</label><input id="nCount" type="number" min="1" value="1">' :
+          '  <label>台数(手動ID指定時は1台のみ)</label><input id="nCount" type="number" min="1" value="1">' +
+          '  <label>個別IDを手動指定する場合のみ入力(通常は空欄で自動採番)</label><input id="nId" placeholder="例: CAM-004">'
+        ) +
+        '</div>' +
+        '<div class="rowActions"><button id="submitNewBtn">登録する</button><button class="secondary" id="cancelNewBtn">キャンセル</button></div>' +
+        '<div class="errorMsg" id="newError"></div>';
+
+      var overlay = showModal(html);
+      overlay.querySelector('#mClose').addEventListener('click', closeModal);
+      overlay.querySelector('#cancelNewBtn').addEventListener('click', closeModal);
+
+      overlay.querySelectorAll('.quickLocBtn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          overlay.querySelectorAll('.quickLocBtn').forEach(function (b) { b.classList.remove('selected'); });
+          btn.classList.add('selected');
+          overlay.querySelector('#nLocation').value = btn.getAttribute('data-loc');
+        });
+      });
+
+      overlay.querySelector('#submitNewBtn').addEventListener('click', function () {
+        var errEl = overlay.querySelector('#newError');
+        errEl.textContent = '';
+        var name = overlay.querySelector('#nName').value.trim();
+        if (!name) { errEl.textContent = '機材名を入力してください。'; return; }
+
+        var data = {
+          name: name,
+          type: overlay.querySelector('#nType').value.trim(),
+          dept: overlay.querySelector('#nDept').value,
+          maker: overlay.querySelector('#nMaker').value.trim(),
+          manualUrl: overlay.querySelector('#nManualUrl').value.trim(),
+          purchasedAt: overlay.querySelector('#nPurchasedAt').value.trim(),
+          status: overlay.querySelector('#nStatus').value,
+          location: overlay.querySelector('#nLocation').value.trim(),
+          note: overlay.querySelector('#nNote').value.trim(),
+          id: isAddMore ? '' : overlay.querySelector('#nId').value.trim(),
+          count: parseInt(overlay.querySelector('#nCount').value, 10) || 1,
+          baseEquipmentId: isAddMore ? prefill.baseEquipmentId : ''
+        };
+
+        overlay.querySelector('#submitNewBtn').disabled = true;
+        callApi('addEquipment', data)
+          .then(function (created) {
+            var newItems = (created || []).filter(function (o) { return o && o.id; });
+            STATE.equipment = STATE.equipment.filter(function (o) { return o && o.id; }).concat(newItems);
+            if (data.location && STATE.locations.indexOf(data.location) === -1) {
+              STATE.locations.push(data.location);
+              renderLocationFilter();
+            }
+            renderGrid();
+            closeModal();
+          })
+          .catch(function (err) {
+            overlay.querySelector('#submitNewBtn').disabled = false;
+            errEl.textContent = err.message || String(err);
+          });
+      });
+    }
+
+    // ============================================================
+    // 部員管理モーダル(管理者限定)
+    // ============================================================
+    function openMembersModal() {
+      var html = '' +
+        '<div class="modalHeader"><h2>部員管理(学籍番号)</h2><button class="closeBtn" id="mClose">×</button></div>' +
+        '<div id="memberList" class="muted">読み込み中...</div>' +
+        '<div class="section"><h3>部員を追加</h3>' +
+        '  <label>学籍番号</label><input id="newMemberStudentId" placeholder="例: 123m4567">' +
+        '  <label>表示名</label><input id="newMemberName">' +
+        '  <div class="inline" style="margin-top:8px;"><label style="margin:0;"><input type="checkbox" id="newMemberAdmin" style="width:auto;"> 管理者にする</label></div>' +
+        '  <div class="rowActions"><button id="addMemberBtn">追加</button></div>' +
+        '  <div class="errorMsg" id="memberError"></div>' +
+        '</div>';
+
+      var overlay = showModal(html, { wide: true });
+      overlay.querySelector('#mClose').addEventListener('click', closeModal);
+
+      function loadMembers() {
+        callApi('listMembers', {})
+          .then(function (members) {
+            var el = overlay.querySelector('#memberList');
+            el.className = '';
+            el.innerHTML = members.map(function (m) {
+              var isMe = m.studentId === CURRENT_MEMBER.studentId;
+              return '' +
+                '<div class="memberRow">' +
+                '  <span class="name">' + esc(m.name || '(名前未設定)') + '</span>' +
+                '  <span class="sid">' + esc(m.studentId) + '</span>' +
+                '  <label style="width:auto;margin:0;display:flex;align-items:center;gap:4px;">' +
+                '    <input type="checkbox" class="adminToggle" data-sid="' + esc(m.studentId) + '" style="width:auto;"' + (m.isAdmin ? ' checked' : '') + (isMe ? ' disabled' : '') + '> 管理者' +
+                '  </label>' +
+                '  <button class="secondary removeBtn" data-sid="' + esc(m.studentId) + '"' + (isMe ? ' disabled' : '') + '>削除</button>' +
+                '</div>';
+            }).join('');
+
+            el.querySelectorAll('.adminToggle').forEach(function (chk) {
+              chk.addEventListener('change', function () {
+                callApi('setMemberAdmin', { studentId: chk.getAttribute('data-sid'), isAdmin: chk.checked })
+                  .then(loadMembers)
+                  .catch(function (err) { alert(err.message || String(err)); loadMembers(); });
+              });
+            });
+            el.querySelectorAll('.removeBtn').forEach(function (btn) {
+              btn.addEventListener('click', function () {
+                if (!confirm('「' + btn.getAttribute('data-sid') + '」を削除します。よろしいですか?')) return;
+                callApi('removeMember', { studentId: btn.getAttribute('data-sid') })
+                  .then(loadMembers)
+                  .catch(function (err) { alert(err.message || String(err)); });
+              });
+            });
+          })
+          .catch(function (err) {
+            overlay.querySelector('#memberList').textContent = 'エラー: ' + (err.message || String(err));
+          });
+      }
+
+      overlay.querySelector('#addMemberBtn').addEventListener('click', function () {
+        var errEl = overlay.querySelector('#memberError');
+        errEl.textContent = '';
+        var studentId = overlay.querySelector('#newMemberStudentId').value.trim();
+        var name = overlay.querySelector('#newMemberName').value.trim();
+        var isAdmin = overlay.querySelector('#newMemberAdmin').checked;
+        if (!studentId) { errEl.textContent = '学籍番号を入力してください。'; return; }
+        callApi('addMember', { studentId: studentId, name: name, isAdmin: isAdmin })
+          .then(function () {
+            overlay.querySelector('#newMemberStudentId').value = '';
+            overlay.querySelector('#newMemberName').value = '';
+            overlay.querySelector('#newMemberAdmin').checked = false;
+            loadMembers();
+          })
+          .catch(function (err) { errEl.textContent = err.message || String(err); });
+      });
+
+      loadMembers();
+    }
+
+  })();
+  </script>
+</body>
+</html>
